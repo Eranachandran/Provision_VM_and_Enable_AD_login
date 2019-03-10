@@ -1,0 +1,91 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "VirtualMachine_Name": {
+            "type": "string",
+            "metadata": {
+                "description": "Name for the Virtual Machine to be provisioned. VM name is case-insensitive. Alphanumeric and hyphen are valid characters."
+            },
+            "minLength": 1,
+            "maxLength": 64
+        },
+
+        "Image_SKU": {
+            "type": "string",
+            "allowedValues": [
+                "16.04-LTS",
+                "17.10",
+                "18.04-LTS"
+            ],
+            "metadata": {
+                "description": "Select which version of Ubuntu VM need to be deployed"
+            }
+        },
+
+        "VM_Username": {
+            "type": "string",
+            "metadata": {
+                "description": "Username of the administrator account in the Virtual Machine. Username will be used to remote connect (login) to the VM when it is created. Username must only contain letters, numbers, underscores, hyphens and may not start with a hyphen or number."
+            },
+            "minLength": 1,
+            "maxLength": 32
+        },
+        "VM_Password": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Password of the administrator account in the Virtual Machine. Password must have 3 of the following: 1 lowercase character, 1 uppercase character, 1 number and  1 special character that is not hyphen(-). "
+            },
+            "minLength": 12,
+            "maxLength": 72
+        },
+        "VirtualMachine_Size": {
+            "type": "string",
+            "allowedValues": [
+                "Basic_A0",
+                "Basic_A1",
+                "Basic_A2",
+                "Basic_A3",
+                "Basic_A4",
+                "Standard_A0",
+                "Standard_A1",
+                "Standard_A2",
+                "Standard_A3",
+                "Standard_A4",
+                "Standard_A5",
+                "Standard_A6",
+                "Standard_A7",
+                "Standard_D2_v3",
+                "Standard_D4_v3",
+                "Standard_D8_v3",
+                "Standard_D1_v2",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_A1_v2",
+                "Standard_A2_v2",
+                "Standard_A4_v2",
+                "Standard_A8_v2"
+            ]
+        },
+        "PublicIPAddress_Type": {
+            "type": "string",
+            "allowedValues": [
+                "Static",
+                "Dynamic"
+            ]
+        },
+        "iam_user_to_login": {
+            "type": "string",
+            "metadata": {
+                "description": "Enter the IAM username who have Contributor and UserAccessAdministrator role. This IAM username is required to assign VirtualMachineAdministrator role to the IAM user who need access for this VM."
+            }
+        },
+        "iam_password_to_login": {
+            "type": "securestring"
+        },
+        "iam_assignee_username": {
+            "type": "string"
+        }
+    }
+}
