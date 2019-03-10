@@ -1,0 +1,327 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "VirtualMachine_Name": {
+            "type": "string",
+            "metadata": {
+                "description": "Name for the Virtual Machine to be provisioned. VM name is case-insensitive. Alphanumeric and hyphen are valid characters."
+            },
+            "minLength": 1,
+            "maxLength": 64
+        },
+
+        "Image_SKU": {
+            "type": "string",
+            "allowedValues": [
+                "16.04-LTS",
+                "17.10",
+                "18.04-LTS"
+            ],
+            "metadata": {
+                "description": "Select which version of Ubuntu VM need to be deployed"
+            }
+        },
+
+        "VM_Username": {
+            "type": "string",
+            "metadata": {
+                "description": "Username of the administrator account in the Virtual Machine. Username will be used to remote connect (login) to the VM when it is created. Username must only contain letters, numbers, underscores, hyphens and may not start with a hyphen or number."
+            },
+            "minLength": 1,
+            "maxLength": 32
+        },
+        "VM_Password": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Password of the administrator account in the Virtual Machine. Password must have 3 of the following: 1 lowercase character, 1 uppercase character, 1 number and  1 special character that is not hyphen(-). "
+            },
+            "minLength": 12,
+            "maxLength": 72
+        },
+        "VirtualMachine_Size": {
+            "type": "string",
+            "allowedValues": [
+                "Basic_A0",
+                "Basic_A1",
+                "Basic_A2",
+                "Basic_A3",
+                "Basic_A4",
+                "Standard_A0",
+                "Standard_A1",
+                "Standard_A2",
+                "Standard_A3",
+                "Standard_A4",
+                "Standard_A5",
+                "Standard_A6",
+                "Standard_A7",
+                "Standard_D2_v3",
+                "Standard_D4_v3",
+                "Standard_D8_v3",
+                "Standard_D1_v2",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_A1_v2",
+                "Standard_A2_v2",
+                "Standard_A4_v2",
+                "Standard_A8_v2"
+            ]
+        },
+        "PublicIPAddress_Type": {
+            "type": "string",
+            "allowedValues": [
+                "Static",
+                "Dynamic"
+            ]
+        },
+        "iam_user_to_login": {
+            "type": "string",
+            "metadata": {
+                "description": "Enter the IAM username who have Contributor and UserAccessAdministrator role. This IAM username is required to assign VirtualMachineAdministrator role to the IAM user who need access for this VM."
+            }
+        },
+        "iam_password_to_login": {
+            "type": "securestring"
+        },
+        "iam_assignee_username": {
+            "type": "string"
+        }
+    },
+    "variables": {
+        "aadLoginExtensionName": "AADLoginForLinux",
+        "storageaccount_name": "[concat('csstoragedisks', take(uniquestring(parameters('VirtualMachine_Name'), deployment().name), 6))]",
+        "diagnostics_storageaccount_name": "[concat('csstoragediag', take(uniquestring(parameters('VirtualMachine_Name'),deployment().name), 6))]",
+        "virtualnetwork_name": "[concat('csvnet', take(uniquestring(parameters('VirtualMachine_Name'), deployment().name), 6))]",
+        "subnet_name": "default",
+        "networkinterface_name": "[concat(parameters('VirtualMachine_Name'), take(uniquestring(parameters('VirtualMachine_Name'), deployment().name), 3))]",
+        "networksecuritygroup_name": "[concat(parameters('VirtualMachine_Name'), '-nsg')]",
+        "publicipaddress_name": "[concat(parameters('VirtualMachine_Name'), '-ip')]",
+        "vnetId": "[resourceId(resourcegroup().name,'Microsoft.Network/virtualNetworks', variables('virtualnetwork_name'))]",
+        "subnetRef": "[concat(variables('vnetId'), '/subnets/', variables('subnet_name'))]",
+        "address_prefix": "172.17.2.0/24",
+        "subnet_prefix": "172.17.2.0/24",
+        "location": "[resourcegroup().location]"
+
+    },
+    "resources": [{
+            "name": "[variables('networkinterface_name')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2018-04-01",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/networkSecurityGroups/', variables('networksecuritygroup_name'))]",
+                "[concat('Microsoft.Network/virtualNetworks/', variables('virtualnetwork_name'))]",
+                "[concat('Microsoft.Network/publicIpAddresses/', variables('publicipaddress_name'))]"
+            ],
+            "properties": {
+                "ipConfigurations": [{
+                    "name": "ipconfig1",
+                    "properties": {
+                        "subnet": {
+                            "id": "[variables('subnetRef')]"
+                        },
+                        "privateIPAllocationMethod": "Dynamic",
+                        "publicIpAddress": {
+                            "id": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', variables('publicipaddress_name'))]"
+                        }
+                    }
+                }],
+                "networkSecurityGroup": {
+                    "id": "[resourceId(resourcegroup().name, 'Microsoft.Network/networkSecurityGroups', variables('networksecuritygroup_name'))]"
+                }
+            }
+        },
+        {
+            "name": "[variables('networksecuritygroup_name')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "securityRules": [{
+                    "name": "SSH",
+                    "properties": {
+                        "priority": "300",
+                        "protocol": "TCP",
+                        "access": "Allow",
+                        "direction": "Inbound",
+                        "sourceApplicationSecurityGroups": [],
+                        "destinationApplicationSecurityGroups": [],
+                        "sourceAddressPrefix": "*",
+                        "sourcePortRange": "*",
+                        "destinationAddressPrefix": "*",
+                        "destinationPortRange": "22"
+                    }
+                }]
+            }
+        },
+        {
+            "name": "[variables('virtualnetwork_name')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('address_prefix')]"
+                    ]
+                },
+                "subnets": [{
+                    "name": "[variables('subnet_name')]",
+                    "properties": {
+                        "addressPrefix": "[variables('subnet_prefix')]"
+                    }
+                }]
+            }
+        },
+        {
+            "name": "[variables('publicipaddress_name')]",
+            "type": "Microsoft.Network/publicIpAddresses",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "publicIpAllocationMethod": "[parameters('PublicIPAddress_Type')]"
+            },
+            "sku": {
+                "name": "Basic"
+            }
+        },
+
+        {
+            "name": "[variables('storageaccount_name')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2018-07-01",
+            "kind": "Storage",
+            "location": "[variables('location')]",
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "properties": {}
+        },
+
+        {
+            "name": "[variables('diagnostics_storageaccount_name')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2018-07-01",
+            "kind": "Storage",
+            "location": "[variables('location')]",
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "properties": {}
+        },
+
+        {
+            "name": "[parameters('VirtualMachine_Name')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2018-06-01",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Storage/storageAccounts/', variables('storageaccount_name'))]",
+                "[concat('Microsoft.Network/networkInterfaces/', variables('networkinterface_name'))]"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('VirtualMachine_Size')]"
+                },
+                "storageProfile": {
+                    "osDisk": {
+                        "createOption": "fromImage",
+                        "vhd": {
+                            "uri": "[concat(concat(concat('https://', variables('storageaccount_name'), '.blob.core.windows.net/'), 'vhds/'), parameters('VirtualMachine_Name'), '.vhd')]"
+                        },
+                        "name": "[parameters('VirtualMachine_Name')]"
+                    },
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "[parameters('Image_SKU')]",
+                        "version": "latest"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [{
+                        "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkinterface_name'))]"
+                    }]
+                },
+                "osProfile": {
+                    "computerName": "[parameters('VirtualMachine_Name')]",
+                    "adminUsername": "[parameters('VM_Username')]",
+                    "adminPassword": "[parameters('VM_Password')]"
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('VirtualMachine_Name'),'/', variables('aadLoginExtensionName'))]",
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "apiVersion": "2017-12-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "publisher": "Microsoft.Azure.ActiveDirectory.LinuxSSH",
+                "type": "AADLoginForLinux",
+                "typeHandlerVersion": "1.0",
+                "autoUpgradeMinorVersion": true
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('VirtualMachine_Name'))]"
+            ]
+        },
+
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat(parameters('VirtualMachine_Name'),'/CustomScriptExtension')]",
+            "apiVersion": "2018-06-01",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('VirtualMachine_Name'))]",
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('VirtualMachine_Name'), '/extensions/', variables('aadLoginExtensionName'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "********URL OF THE BASH SCRIPT*********"
+                    ],
+                    "commandToExecute": "[concat('sh login_with_ad_script.sh', ' ', parameters('iam_user_to_login'), ' ', parameters('iam_password_to_login'), ' ', resourceGroup().name, ' ', parameters('VirtualMachine_Name'), ' ', parameters('iam_assignee_username'))]"
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "VirtualMachine_Name": {
+            "type": "String",
+            "value": "[parameters('VirtualMachine_Name')]"
+        },
+        "Image_SKU": {
+            "type": "String",
+            "value": "[parameters('Image_SKU')]"
+        },
+        "VM_Username": {
+            "type": "String",
+            "value": "[parameters('VM_Username')]"
+        },
+        "VirtualMachine_Size": {
+            "type": "String",
+            "value": "[parameters('VirtualMachine_Size')]"
+        },
+        "PublicIPAddress_Type": {
+            "type": "String",
+            "value": "[parameters('PublicIPAddress_Type')]"
+        },
+        "iam_user_to_login": {
+            "type": "String",
+            "value": "[parameters('iam_user_to_login')]"
+        },
+        "iam_assignee_username": {
+            "type": "String",
+            "value": "[parameters('iam_assignee_username')]"
+        },
+		"location": {
+            "type": "String",
+            "value": "[variables('location')]"
+        }
+    }
+}
