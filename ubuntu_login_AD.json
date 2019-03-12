@@ -90,9 +90,9 @@
     },
     "variables": {
         "aadLoginExtensionName": "AADLoginForLinux",
-        "storageaccount_name": "[concat('csstoragedisks', take(uniquestring(parameters('VirtualMachine_Name'), deployment().name), 6))]",
-        "diagnostics_storageaccount_name": "[concat('csstoragediag', take(uniquestring(parameters('VirtualMachine_Name'),deployment().name), 6))]",
-        "virtualnetwork_name": "[concat('csvnet', take(uniquestring(parameters('VirtualMachine_Name'), deployment().name), 6))]",
+        "storageaccount_name": "[concat('tsstoragedisks', take(uniquestring(parameters('VirtualMachine_Name'), deployment().name), 6))]",
+        "diagnostics_storageaccount_name": "[concat('tsstoragediag', take(uniquestring(parameters('VirtualMachine_Name'),deployment().name), 6))]",
+        "virtualnetwork_name": "[concat('tsvnet', take(uniquestring(parameters('VirtualMachine_Name'), deployment().name), 6))]",
         "subnet_name": "default",
         "networkinterface_name": "[concat(parameters('VirtualMachine_Name'), take(uniquestring(parameters('VirtualMachine_Name'), deployment().name), 3))]",
         "networksecuritygroup_name": "[concat(parameters('VirtualMachine_Name'), '-nsg')]",
